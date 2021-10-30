@@ -57,9 +57,10 @@ func documentCurrentPage(doc *document.Document) lua.LGFunction {
 	}
 }
 
-func documentNewPage(l *lua.LState) int {
-	d := checkDocument(l, 1)
-	p := d.d.NewPage()
-	l.Push(newUserdataPage(l, p))
-	return 1
+func documentNewPage(doc *document.Document) lua.LGFunction {
+	return func(l *lua.LState) int {
+		p := doc.NewPage()
+		l.Push(newUserdataPage(l, p))
+		return 1
+	}
 }

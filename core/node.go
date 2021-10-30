@@ -43,6 +43,7 @@ func registerNodeType(l *lua.LState) {
 	l.SetField(mt, "debug", l.NewFunction(debugNode))
 	l.SetField(mt, "hpack", l.NewFunction(nodeHpack))
 	l.SetField(mt, "insertafter", l.NewFunction(nodeInsertAfter))
+	l.SetField(mt, "insertbefore", l.NewFunction(nodeInsertBefore))
 	l.SetField(mt, "simplelinebreak", l.NewFunction(nodeSimpleLinebreak))
 }
 
@@ -72,6 +73,22 @@ func nodeInsertAfter(l *lua.LState) int {
 	}
 	ins := checkNode(l, 3)
 	newhead := bagnode.InsertAfter(head, cur, ins)
+	l.Push(newUserDataFromNode(l, newhead))
+	return 1
+}
+
+func nodeInsertBefore(l *lua.LState) int {
+	var head, cur bagnode.Node
+	if l.Get(1) == lua.LNil {
+	} else {
+		head = checkNode(l, 1)
+	}
+	if l.Get(2) == lua.LNil {
+	} else {
+		cur = checkNode(l, 2)
+	}
+	ins := checkNode(l, 3)
+	newhead := bagnode.InsertBefore(head, cur, ins)
 	l.Push(newUserDataFromNode(l, newhead))
 	return 1
 }

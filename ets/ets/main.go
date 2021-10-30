@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/speedata/ets/core"
 	"github.com/speedata/optionparser"
@@ -24,9 +25,11 @@ func dothings() error {
 }
 
 func main() {
+	start := time.Now()
 	err := dothings()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
+	fmt.Println(time.Now().Sub(start))
 }

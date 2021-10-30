@@ -80,6 +80,9 @@ func indexDoc(l *lua.LState) int {
 	case "loadpattern":
 		l.Push(l.NewFunction(documentLoadPatternFile(doc.d)))
 		return 1
+	case "newpage":
+		l.Push(l.NewFunction(documentNewPage(doc.d)))
+		return 1
 	case "outputat":
 		l.Push(l.NewFunction(documentOutputAt(doc.d)))
 		return 1
@@ -176,8 +179,4 @@ func newIndexLang(l *lua.LState) int {
 
 func indexLang(l *lua.LState) int {
 	return 0
-}
-
-var documentMethods = map[string]lua.LGFunction{
-	"newPage": documentNewPage,
 }
