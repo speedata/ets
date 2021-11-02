@@ -27,6 +27,7 @@ const (
 func registerDocumentType(l *lua.LState) {
 	mt := l.NewTypeMetatable(luaDocumentTypeName)
 	l.SetGlobal("document", mt)
+	l.SetField(mt, "info", l.NewFunction(documentInfo))
 	l.SetField(mt, "new", l.NewFunction(newDocument))
 	l.SetField(mt, "sp", l.NewFunction(documentSP))
 	l.SetField(mt, "__index", l.NewFunction(indexDoc))
@@ -35,25 +36,37 @@ func registerDocumentType(l *lua.LState) {
 // Constructor
 func newDocument(l *lua.LState) int {
 	doc := &doc{}
-	lv := l.Get(-1)
+	filename := l.CheckString(1)
 	var w *os.File
 	var err error
-	if str, ok := lv.(lua.LString); ok {
-		w, err = os.Create(string(str))
-		if err != nil {
-			return lerr(l, err.Error())
-		}
-	} else {
-		l.TypeError(1, lua.LTString)
-		return 0
+	w, err = os.Create(filename)
+	if err != nil {
+		return lerr(l, err.Error())
 	}
 	doc.w = w
 	doc.d = document.NewDocument(w)
+	doc.d.Filename = filename
 	ud := l.NewUserData()
 	ud.Value = doc
 	l.SetMetatable(ud, l.GetTypeMetatable(luaDocumentTypeName))
 	l.Push(ud)
 	return 1
+}
+
+func documentSP(l *lua.LState) int {
+	arg := l.CheckString(1)
+	size, err := bag.Sp(arg)
+	if err != nil {
+		return lerr(l, err.Error())
+	}
+	l.Push(lua.LNumber(size))
+	return 1
+}
+
+func documentInfo(l *lua.LState) int {
+	str := l.CheckString(1)
+	bag.Logger.Info(str)
+	return 0
 }
 
 func indexDoc(l *lua.LState) int {
@@ -113,16 +126,6 @@ func documentFinish(d *doc) lua.LGFunction {
 		l.Push(lua.LTrue)
 		return 1
 	}
-}
-
-func documentSP(l *lua.LState) int {
-	arg := l.CheckString(1)
-	size, err := bag.Sp(arg)
-	if err != nil {
-		return lerr(l, err.Error())
-	}
-	l.Push(lua.LNumber(size))
-	return 1
 }
 
 func documentLoadPatternFile(doc *document.Document) lua.LGFunction {

@@ -3,6 +3,14 @@
 This software repository contains a Lua frontend for the typesetting library [“Boxes and Glue”](https://github.com/speedata/boxesandglue) which is an algorithmic typesetting machine in the spirits of TeX.
 
 
+## Running the software
+
+Download the software ([get the latest release here](https://github.com/speedata/ets/releases)), unzip the archive and call
+
+    bin/ets myscript.lua
+
+on the command line.
+
 ## Build
 
 You just need Go installed on your system, clone the repository and run
@@ -10,17 +18,10 @@ You just need Go installed on your system, clone the repository and run
     go build -o bin/ets github.com/speedata/ets/ets/ets
 
 
-## Running the software
-
-call
-
-    bin/ets myscript.lua
-
-on the command line
 
 ## Status
 
-This software is more or less a demo of the architecture and usable for any serious purpose yet.
+This software is more or less a demo of the architecture and not usable for any serious purpose yet.
 
 Feedback welcome!
 
