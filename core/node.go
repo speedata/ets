@@ -9,14 +9,15 @@ import (
 )
 
 const (
-	luaNodeTypeName      = "node"
-	luaHlistNodeTypeName = "hlistnode"
-	luaVlistNodeTypeName = "vlistnode"
-	luaGlyphNodeTypeName = "glyphnode"
-	luaImageNodeTypeName = "imagenode"
-	luaLangNodeTypeName  = "langnode"
-	luaGlueNodeTypeName  = "gluenode"
-	luaDiscNodeTypeName  = "discnode"
+	luaNodeTypeName        = "node"
+	luaDiscNodeTypeName    = "discnode"
+	luaGlueNodeTypeName    = "gluenode"
+	luaGlyphNodeTypeName   = "glyphnode"
+	luaHlistNodeTypeName   = "hlistnode"
+	luaImageNodeTypeName   = "imagenode"
+	luaLangNodeTypeName    = "langnode"
+	luaPenaltyNodeTypeName = "penaltynode"
+	luaVlistNodeTypeName   = "vlistnode"
 )
 
 /*
@@ -130,6 +131,9 @@ func newNode(l *lua.LState) int {
 	case "lang":
 		l.Push(newUserDataFromNode(l, bagnode.NewLang()))
 		return 1
+	case "penalty":
+		l.Push(newUserDataFromNode(l, bagnode.NewPenalty()))
+		return 1
 	case "vlist":
 		l.Push(newUserDataFromNode(l, bagnode.NewVList()))
 		return 1
@@ -170,6 +174,10 @@ func newUserDataFromNode(l *lua.LState, n bagnode.Node) *lua.LUserData {
 		mt = l.NewTypeMetatable(luaLangNodeTypeName)
 		l.SetField(mt, "__index", l.NewFunction(langNodeIndex))
 		l.SetField(mt, "__newindex", l.NewFunction(langNodeNewIndex))
+	case *bagnode.Penalty:
+		mt = l.NewTypeMetatable(luaPenaltyNodeTypeName)
+		l.SetField(mt, "__index", l.NewFunction(penaltyNodeIndex))
+		l.SetField(mt, "__newindex", l.NewFunction(penaltyNodeNewIndex))
 	case *bagnode.VList:
 		mt = l.NewTypeMetatable(luaVlistNodeTypeName)
 		l.SetField(mt, "__index", l.NewFunction(vlistIndex))
@@ -581,6 +589,79 @@ func langNodeIndex(l *lua.LState) int {
 		return 1
 	case "name":
 		l.Push(lua.LString(n.Lang.Name))
+		return 1
+	}
+	return 0
+}
+
+/*
+
+   Penalty nodes
+
+*/
+
+func checkPenaltyNode(l *lua.LState, argpos int) *bagnode.Penalty {
+	ud := l.CheckUserData(argpos)
+	if v, ok := ud.Value.(*bagnode.Penalty); ok {
+		return v
+	}
+	l.ArgError(argpos, "penalty node expected")
+	return nil
+}
+
+func penaltyNodeNewIndex(l *lua.LState) int {
+	n := checkPenaltyNode(l, 1)
+	switch arg := l.ToString(2); arg {
+	case "next":
+		if l.Get(3) == lua.LNil {
+			n.SetNext(nil)
+		} else {
+			n.SetNext(checkNode(l, 3))
+		}
+		return 0
+	case "prev":
+		if l.Get(3) == lua.LNil {
+			n.SetNext(nil)
+		} else {
+			n.SetNext(checkNode(l, 3))
+		}
+		return 0
+	case "penalty":
+		n.Penalty = l.CheckInt(3)
+	case "flagged":
+		n.Flagged = l.CheckBool(3)
+	case "width":
+		wd := l.CheckNumber(3)
+		n.Width = bag.ScaledPoint(wd)
+	}
+	return 0
+}
+
+func penaltyNodeIndex(l *lua.LState) int {
+	n := checkPenaltyNode(l, 1)
+	switch arg := l.ToString(2); arg {
+	case "next":
+		var other bagnode.Node
+		if other = n.Next(); other == nil {
+			return 0
+		}
+		l.Push(newUserDataFromNode(l, other))
+		return 1
+	case "prev":
+		var other bagnode.Node
+		if other = n.Next(); other == nil {
+			return 0
+		}
+		l.Push(newUserDataFromNode(l, other))
+		return 1
+	case "penalty":
+		l.Push(lua.LNumber(n.Penalty))
+		return 1
+	case "flagged":
+		l.Push(lua.LBool(n.Flagged))
+		return 1
+	case "width":
+		l.Push(lua.LNumber(n.Width))
 		return 1
 	}
 	return 0
