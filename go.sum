@@ -23,6 +23,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/speedata/boxesandglue v0.0.0-20211111193940-f1fa41337424 h1:PldJT1hdoYf4akvjCw8aqeAk6OeNxyL3j6uxP0D99RM=
 github.com/speedata/boxesandglue v0.0.0-20211111193940-f1fa41337424/go.mod h1:9BV4WsjEDggvn0iSppPMrFV//NB0wlOqX+XC9RImjh8=
+github.com/speedata/boxesandglue v0.0.0-20211129134402-170b3c4c07fb h1:WyYV5b5hOKuTh1FnC6+jPluwhAeKjUcLfAyRYdxQx8I=
+github.com/speedata/boxesandglue v0.0.0-20211129134402-170b3c4c07fb/go.mod h1:9BV4WsjEDggvn0iSppPMrFV//NB0wlOqX+XC9RImjh8=
 github.com/speedata/gofpdi v1.0.15 h1:PLFmzHTAdhgvCDMsWgvL/njaDFzTmvsYewqgw3UUEg4=
 github.com/speedata/gofpdi v1.0.15/go.mod h1:aRZ6VjhFbzJWwCoHeKOdbUjImuf4GMVCJpwS9+bCYuM=
 github.com/speedata/gootf v0.0.0-20211102101716-062a89e3221e h1:NHpP15eopboLD2vKal/0qQ3IuXYa+ohenSH9+2YjDKs=

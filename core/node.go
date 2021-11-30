@@ -41,11 +41,12 @@ func registerNodeType(l *lua.LState) {
 	mt := l.NewTypeMetatable(luaNodeTypeName)
 	l.SetGlobal("node", mt)
 	l.SetField(mt, "new", l.NewFunction(newNode))
+	l.SetField(mt, "append_lineend", l.NewFunction(nodeAppendLineEndAfter))
 	l.SetField(mt, "debug", l.NewFunction(debugNode))
 	l.SetField(mt, "hpack", l.NewFunction(nodeHpack))
 	l.SetField(mt, "insertafter", l.NewFunction(nodeInsertAfter))
 	l.SetField(mt, "insertbefore", l.NewFunction(nodeInsertBefore))
-	l.SetField(mt, "simplelinebreak", l.NewFunction(nodeSimpleLinebreak))
+	l.SetField(mt, "linebreak", l.NewFunction(nodeLinebreak))
 }
 
 func debugNode(l *lua.LState) int {
@@ -78,6 +79,12 @@ func nodeInsertAfter(l *lua.LState) int {
 	return 1
 }
 
+func nodeAppendLineEndAfter(l *lua.LState) int {
+	head := checkNode(l, 1)
+	bagnode.AppendLineEndAfter(head)
+	return 0
+}
+
 func nodeInsertBefore(l *lua.LState) int {
 	var head, cur bagnode.Node
 	if l.Get(1) == lua.LNil {
@@ -94,19 +101,20 @@ func nodeInsertBefore(l *lua.LState) int {
 	return 1
 }
 
-func nodeSimpleLinebreak(l *lua.LState) int {
+func nodeLinebreak(l *lua.LState) int {
 	n := checkNode(l, 1)
 	tbl := l.CheckTable(2)
 
-	settings := bagnode.LinebreakSettings{}
+	settings := bagnode.NewLinebreakSettings()
 	l.Push(tbl.RawGetString("hsize"))
 	hsize := l.CheckNumber(3)
 
 	l.Push(tbl.RawGetString("lineheight"))
-	linehight := l.CheckNumber(4)
+	lineheight := l.CheckNumber(4)
 	settings.HSize = bag.ScaledPoint(hsize)
-	settings.LineHeight = bag.ScaledPoint(linehight)
-	vl := bagnode.SimpleLinebreak(n.(*bagnode.HList), settings)
+	settings.LineHeight = bag.ScaledPoint(lineheight)
+
+	vl, _ := bagnode.Linebreak(n, settings)
 	l.Push(newUserDataFromNode(l, vl))
 	return 1
 }
@@ -223,6 +231,15 @@ func discIndex(l *lua.LState) int {
 		}
 		l.Push(newUserDataFromNode(l, other))
 		return 1
+	case "pre":
+		var other bagnode.Node
+		if other = n.Pre; other == nil {
+			return 0
+		}
+		l.Push(newUserDataFromNode(l, other))
+		return 1
+	default:
+		l.ArgError(2, fmt.Sprintf("unknown field %s in disc", arg))
 	}
 	return 0
 }
@@ -244,8 +261,15 @@ func discNewIndex(l *lua.LState) int {
 			n.SetNext(checkNode(l, 3))
 		}
 		return 0
+	case "pre":
+		if l.Get(3) == lua.LNil {
+			n.Pre = nil
+		} else {
+			n.Pre = checkNode(l, 3)
+		}
+		return 0
 	default:
-		fmt.Println("newindex", arg)
+		l.ArgError(2, fmt.Sprintf("unknown field %s in disc", arg))
 	}
 	return 0
 }
@@ -290,15 +314,18 @@ func glyphNewIndex(l *lua.LState) int {
 	case "font":
 		arg := checkFont(l, 3)
 		n.Font = arg
+	case "hyphenate":
+		arg := l.CheckBool(3)
+		n.Hyphenate = arg
 	case "width":
 		wd := l.CheckNumber(3)
 		n.Width = bag.ScaledPoint(wd)
 	default:
-		fmt.Println("newindex", arg)
-		_ = n
+		l.ArgError(2, fmt.Sprintf("unknown field %s in glyph", arg))
 	}
 	return 0
 }
+
 func glyphIndex(l *lua.LState) int {
 	n := checkGlyph(l, 1)
 	switch arg := l.ToString(2); arg {
@@ -316,14 +343,17 @@ func glyphIndex(l *lua.LState) int {
 		}
 		l.Push(newUserDataFromNode(l, other))
 		return 1
-	case "width":
-		l.Push(lua.LNumber(n.Width))
+	case "codepoint":
+		l.Push(lua.LNumber(n.Codepoint))
 		return 1
 	case "components":
 		l.Push(lua.LString(n.Components))
 		return 1
+	case "width":
+		l.Push(lua.LNumber(n.Width))
+		return 1
 	default:
-		fmt.Println("arg", arg)
+		l.ArgError(2, fmt.Sprintf("unknown field %s in glyph", arg))
 	}
 	return 0
 }
@@ -363,6 +393,18 @@ func glueIndex(l *lua.LState) int {
 	case "width":
 		l.Push(lua.LNumber(n.Width))
 		return 1
+	case "stretch":
+		l.Push(lua.LNumber(n.Stretch))
+		return 1
+	case "shrink":
+		l.Push(lua.LNumber(n.Shrink))
+		return 1
+	case "stretch_order":
+		l.Push(lua.LNumber(n.StretchOrder))
+		return 1
+	case "shrink_order":
+		l.Push(lua.LNumber(n.ShrinkOrder))
+		return 1
 	default:
 		l.ArgError(2, fmt.Sprintf("unknown field %s in glue", arg))
 		return 0
@@ -389,6 +431,18 @@ func glueNewIndex(l *lua.LState) int {
 	case "width":
 		arg := l.CheckNumber(3)
 		n.Width = bag.ScaledPoint(arg)
+	case "stretch":
+		arg := l.CheckNumber(3)
+		n.Stretch = bag.ScaledPoint(arg)
+	case "shrink":
+		arg := l.CheckNumber(3)
+		n.Shrink = bag.ScaledPoint(arg)
+	case "stretch_order":
+		arg := l.CheckNumber(3)
+		n.StretchOrder = bagnode.GlueOrder(arg)
+	case "shrink_order":
+		arg := l.CheckNumber(3)
+		n.ShrinkOrder = bagnode.GlueOrder(arg)
 	default:
 		l.ArgError(2, fmt.Sprintf("unknown field %s in glue", arg))
 		return 0
@@ -415,12 +469,6 @@ func hlistIndex(l *lua.LState) int {
 	var other bagnode.Node
 	n := checkHlist(l, 1)
 	switch arg := l.ToString(2); arg {
-	case "list":
-		if other = n.List; other == nil {
-			return 0
-		}
-		l.Push(newUserDataFromNode(l, other))
-		return 1
 	case "next":
 		if other = n.Next(); other == nil {
 			return 0
@@ -429,6 +477,12 @@ func hlistIndex(l *lua.LState) int {
 		return 1
 	case "prev":
 		if other = n.Next(); other == nil {
+			return 0
+		}
+		l.Push(newUserDataFromNode(l, other))
+		return 1
+	case "list":
+		if other = n.List; other == nil {
 			return 0
 		}
 		l.Push(newUserDataFromNode(l, other))
@@ -628,8 +682,6 @@ func penaltyNodeNewIndex(l *lua.LState) int {
 		return 0
 	case "penalty":
 		n.Penalty = l.CheckInt(3)
-	case "flagged":
-		n.Flagged = l.CheckBool(3)
 	case "width":
 		wd := l.CheckNumber(3)
 		n.Width = bag.ScaledPoint(wd)
@@ -656,9 +708,6 @@ func penaltyNodeIndex(l *lua.LState) int {
 		return 1
 	case "penalty":
 		l.Push(lua.LNumber(n.Penalty))
-		return 1
-	case "flagged":
-		l.Push(lua.LBool(n.Flagged))
 		return 1
 	case "width":
 		l.Push(lua.LNumber(n.Width))

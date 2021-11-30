@@ -31,6 +31,7 @@ func registerDocumentType(l *lua.LState) {
 	l.SetField(mt, "new", l.NewFunction(newDocument))
 	l.SetField(mt, "sp", l.NewFunction(documentSP))
 	l.SetField(mt, "__index", l.NewFunction(indexDoc))
+	l.SetField(mt, "__newindex", l.NewFunction(newindexDoc))
 }
 
 // Constructor
@@ -87,6 +88,9 @@ func indexDoc(l *lua.LState) int {
 	case "finish":
 		l.Push(l.NewFunction(documentFinish(doc)))
 		return 1
+	case "hyphenate":
+		l.Push(l.NewFunction(documentHyphenate(doc.d)))
+		return 1
 	case "loadimagefile":
 		l.Push(l.NewFunction(documentLoadImageFile(doc.d)))
 		return 1
@@ -99,8 +103,23 @@ func indexDoc(l *lua.LState) int {
 	case "outputat":
 		l.Push(l.NewFunction(documentOutputAt(doc.d)))
 		return 1
+	case "defaultlanguage":
+		ud := newUserDataFromType(l, doc.d.DefaultLanguage)
+		l.Push(ud)
+		return 1
 	default:
 		fmt.Println("default in indexDoc", arg)
+	}
+	return 0
+}
+
+func newindexDoc(l *lua.LState) int {
+	doc := checkDocument(l, 1)
+	switch arg := l.CheckString(2); arg {
+	case "defaultlanguage":
+		ud := checkPatternFile(l, 3)
+		doc.d.SetDefaultLanguage(ud)
+		return 0
 	}
 	return 0
 }
@@ -128,6 +147,14 @@ func documentFinish(d *doc) lua.LGFunction {
 	}
 }
 
+func documentHyphenate(doc *document.Document) lua.LGFunction {
+	return func(l *lua.LState) int {
+		n := checkNode(l, 1)
+		doc.Hyphenate(n)
+		return 0
+	}
+}
+
 func documentLoadPatternFile(doc *document.Document) lua.LGFunction {
 	return func(l *lua.LState) int {
 		fn := l.CheckString(1)
@@ -135,12 +162,7 @@ func documentLoadPatternFile(doc *document.Document) lua.LGFunction {
 		if err != nil {
 			return lerr(l, err.Error())
 		}
-		mt := l.NewTypeMetatable(luaLangTypeName)
-		l.SetField(mt, "__index", l.NewFunction(indexLang))
-		l.SetField(mt, "__newindex", l.NewFunction(newIndexLang))
-		ud := l.NewUserData()
-		ud.Value = pat
-		l.SetMetatable(ud, mt)
+		ud := newUserDataFromType(l, pat)
 		l.Push(ud)
 		return 1
 	}
@@ -182,4 +204,19 @@ func newIndexLang(l *lua.LState) int {
 
 func indexLang(l *lua.LState) int {
 	return 0
+}
+
+func newUserDataFromType(l *lua.LState, n interface{}) *lua.LUserData {
+	var mt *lua.LTable
+	switch t := n.(type) {
+	case *lang.Lang:
+		mt = l.NewTypeMetatable(luaLangTypeName)
+		l.SetField(mt, "__index", l.NewFunction(indexLang))
+		l.SetField(mt, "__newindex", l.NewFunction(newIndexLang))
+		ud := l.NewUserData()
+		ud.Value = t
+		l.SetMetatable(ud, mt)
+		return ud
+	}
+	return nil
 }

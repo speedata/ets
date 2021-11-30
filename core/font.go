@@ -30,11 +30,6 @@ func documentLoadFace(doc *document.Document) lua.LGFunction {
 	}
 }
 
-func getFontFromFace(l *lua.LState) int {
-	stackDump(l)
-	return 1
-}
-
 func checkFace(l *lua.LState, argpos int) *pdf.Face {
 	ud := l.CheckUserData(argpos)
 	if v, ok := ud.Value.(*pdf.Face); ok {
@@ -107,6 +102,12 @@ func indexFont(l *lua.LState) int {
 		return 1
 	case "space":
 		l.Push(lua.LNumber(f.Space))
+		return 1
+	case "stretch":
+		l.Push(lua.LNumber(f.SpaceStretch))
+		return 1
+	case "shrink":
+		l.Push(lua.LNumber(f.SpaceShrink))
 		return 1
 	case "shape":
 		l.Push(l.NewFunction(fontShape(f, fontObj)))

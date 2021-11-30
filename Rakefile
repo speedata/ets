@@ -22,5 +22,9 @@ task :build  do
 	sh "go build -ldflags \"-X main.version=#{@ets_version}\" -o bin/ets github.com/speedata/ets/ets/ets"
 end
 
-
-
+desc "Create documentation"
+task :doc do
+	Dir.chdir("doc") do
+		sh "asciidoctor ets.adoc -a revnumber=#{@ets_version}"
+	end
+end

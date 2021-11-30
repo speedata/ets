@@ -1,0 +1,184 @@
+= Experimental typesetting system (ets)
+Patrick Gundlach <gundlach@speedata.de>
+
+This will eventually be the manual of ets. Let's start with some notes.
+
+
+TIP: This software is unstable in all aspects. The API will change, the code itself
+might not work and trying this out might be a waste of time. If you don't care
+and want to try out ets, go ahead. Please don't hesitate to get into contact
+with the author if you have any suggestions, questions or bug reports.
+
+== What is ets?
+
+ets is just a Lua frontend of https://github.com/speedata/boxesandglue[“boxes
+and glue”], a typesetting library written in Go. The library is not meant as a
+user friendly software for typesetting tasks (such as TeX). It should be viewed
+as a typesetting backend with core functionality such as loading fonts and images,
+line breaking, hyphenation and text justification (h&j) and PDF generation. ets
+exposes this in a Lua library to play with the data structures and perhaps use this as a base to build your own typesetting frontend.
+
+== Lua frontend
+
+The Lua version is implemented in Go and is based on the semantics of Lua 5.1. It will not be perfectly compatible with the Lua you know from https://www.lua.org[www.lua.org].
+
+
+== Running the software
+
+
+Download the software from https://github.com/speedata/ets/releases[GitHub] and navigate to the `ets` folder in the unzipped archive.
+
+[source, shell]
+-------------------------------------------------------------------------------
+bin/ets somefile.lua
+-------------------------------------------------------------------------------
+
+starts ets and loads `somefile.lua` in the current directory.
+
+ets will look for a file named `ets.lua` execute its contents before it executes `somefile.lua`. The startup file (`ets.lua`) must have the same name as the binary (`arg[0]`).
+
+== Lua libraries
+
+The following libraries are predefined in the global namespace:
+
+* `document` has all general information about a document / a PDF file.
+* `node` represents the smallest units of the typesetting software. Each piece of information (visible and invisible) is stored in the nodes which can also contain references to other nodes. A detailed explanation will follow in a subsequent chapter.
+
+
+=== Library `document`
+
+.Document table
+|===
+|Field name | Arguments | Return value |Description
+| `info` | string | - | Log with info level.
+| `new`  | string | doc | Create a new PDF file.
+| `sp`   | string | number | Convert the string to scaled points (1/65536 of a DTP point).
+|===
+
+.The doc table
+|===
+|Field name | Arguments | Return value |Description
+| `loadFace()` | filename string | face object  | Load a font file from the location given in the argument.
+| `createFont()` |  basefont fontface, size sp | font object  | Get a font instance in the given size.
+| `createimage()` | imagefile imageinstance  | image object   | Create an image instance of the given image file.
+| `currentpage()` |  -  | page object  |  Get current page object.
+| `finish()` |  -  | - | Closes the PDF file.
+| `hyphenate()` | node list | - | Insert disc nodes into the node list.
+| `loadimagefile()` |  filename string  | imagefile object  | The imagefile object represents a physical image.
+| `loadpattern()` |  filename string   | language object, error message | The language represents a pattern file.
+| `newpage()` |  -  |  - | Starts an empty page.
+| `outputat()` |  x, y scaled points, vlist vertical list | - | Place the vertical list in the PDF file.
+| `defaultlanguage` | language object | Set the document default language.
+|===
+
+
+=== Library `node`
+
+.Node table
+|===
+|Field name | Arguments | Return value |Description
+| `new()` |  string |  a node   |  Create a new node of the given type.
+| `debug()` | a node  |  -  | Show the node structure in STDOUT.
+| `append_lineend()` | a node |  - | Append a penalty (10000), an infinite stretchable glue and a penalty of -10000 at the end of the argument. Used to finish a paragraph.
+| `hpack()` |  a node  |  hlist node  | Put the node list in the `list` field of a newly created `hlist` node
+| `insertafter()` |  node head, node cur, node newnode |  node   | insert newnode after cur in the list starting with head. Return head.
+| `insertbefore()` |  node head, node cur, node newnode |  node   | insert newnode before cur in the list starting with head. Return head.
+| `linebreak()` | node list, table parameter  |  vlist   | Break the node list into lines specified by the parameter.
+|===
+
+
+=== Nodes
+
+|===
+| Node name | Description
+| `disc` |  A hyphenation point.
+| `glue` | A stretchable and shrinkable space.
+| `glyph` | A single “letter” to be displayed.  This can be anything the font can display.
+| `hlist` | A horizontal list.
+| `image` | An instance of an image file.
+| `lang` | A language node.
+| `penalty` | A penalty holds information about a possible line break point.
+| `vlist` | A vertical list.
+|===
+
+.Common fields of nodes:
+|===
+| Field name | Description
+| `prev` | A link to the previous node of the linked list. Possibly nil.
+| `next` | A link to the next node of the linked list. Possibly nil.
+|===
+
+
+==== `disc`
+
+|===
+| Field name | Value | Description
+| `pre`       | node list | The glyphs that appear at the end of a line during a line break.
+|===
+
+
+==== `glue`
+|===
+| Field name | Value | Description
+| `width` | scaled points number | The natural width of the glue.
+| `stretch` | scaled points number | The allowed stretch of the glue.
+| `shrink` | scaled points number | The allowed shrink width of the glue.
+| `stretch_order` | 0-3 | The infinity order of the stretchability. 0 = finite glue, 1–3: infinite glue.
+| `shrink_order` | 0–3 | The infinity order of the shrinkability. 0 = finite glue, 1–3: infinite glue.
+|===
+
+==== `glyph`
+|===
+| Field name | Value | Description
+| `codepoint` | number | The glyph id in the font.
+| `width` | scaled points | The advance width of the glyph.
+| `components` | string | The (unicode) characters that represents the glyph.
+| `hyphenate` | boolean | This glyph is part of a hyphenatable word.
+| `font` | font object | The font object which this glyph is part of.
+|===
+
+==== `hlist`
+
+|===
+| Field name | Value | Description
+| `width` | scaled points | The width of the list.
+| `height` | scaled points | The height of the list.
+| `depth` | scaled points | The depth of the list.
+|===
+
+==== `image`
+
+|===
+| Field name | Value | Description
+| `img` | Image object | The image object from `doc.createimage()`.
+| `width` | scaled points | The desired image width.
+| `height` | scaled points | The desired image height.
+|===
+
+
+==== `lang`
+|===
+| Field name | Value | Description
+| `lang`    | lang object | The language object from `doc.loadpattern()`.
+| `lefthyphenmin` | number | The minimum amount of characters at the beginning of the word for hyphenation.
+| `righthyphenmin` | number | The minimum amount of characters at the end of a word for hyphenation.
+|===
+
+
+==== `penalty`
+
+|===
+| Field name | Value | Description
+| `penalty` | number | The penalty value.
+| `width`   | scaled point | The width of the penalty.
+|===
+
+
+==== `vlist`
+
+|===
+| Field name | Value | Description
+| `width` | scaled points | The width of the list.
+| `height` | scaled points | The height of the list.
+| `depth` | scaled points | The depth of the list.
+|===

@@ -3,7 +3,7 @@ module github.com/speedata/ets
 go 1.17
 
 require (
-	github.com/speedata/boxesandglue v0.0.0-20211111193940-f1fa41337424
+	github.com/speedata/boxesandglue v0.0.0-20211129134402-170b3c4c07fb
 	github.com/speedata/optionparser v1.0.0
 	github.com/yuin/gopher-lua v0.0.0-20210529063254-f4c35e4016d9
 	go.uber.org/zap v1.19.1
