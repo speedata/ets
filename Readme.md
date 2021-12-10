@@ -35,13 +35,69 @@ Contact: Patrick Gundlach <gundlach@speedata.de>
 
 ## Sample code
 
+### High level interface
+
 ```lua
--- This is still a very vey early preview and will probably not work when
--- you experiment with the code.
---
+-- This document uses the high level interface with document/mknodes.
+-- When you need more control, you can create all nodes yourself and
+-- output these on the page.
+document.info("Reading myfile.lua")
+local d = document.new("out.pdf")
+
+local lang_en, msg = d.loadpattern("hyphenationpatterns/hyph-en-us.pat.txt")
+if not lang_en then
+    print(msg)
+    os.exit(-1)
+end
+d.defaultlanguage = lang_en
+
+-- font sources
+local reg = {name="crimson pro regular",source="fonts/CrimsonPro-Regular.ttf"}
+local bold = {name="crimson pro bold",source="fonts/CrimsonPro-Bold.ttf"}
+
+local ff = d.newfontfamily("textfamily")
+-- font source, weight (0-1000), style (normal,italic)
+ff.addmember(reg,400,"normal")
+ff.addmember(bold,700,"normal")
+
+
+local te = {
+    settings = { fontfamily = ff },
+    "Hello ",
+    { settings = { weight = 700, color = "rebeccapurple"},
+      {"nice"}
+    },
+    " world",
+ }
+
+local head,tail = d.mknodes(te)
+d.hyphenate(head)
+node.append_lineend(tail)
+
+local param = {
+    hsize = document.sp("134pt"),
+    lineheight = document.sp("12pt"),
+}
+
+local vl = node.linebreak(head,param)
+
+d.outputat(document.sp("1cm"),document.sp("27cm"),vl)
+d.currentpage().shipout()
+
+local ok, msg = d.finish()
+if not ok then
+    print(msg)
+    os.exit(-1)
+end
+
+document.info("Reading myfile.lua...done")
+```
+
+### Low level interface with DIY node creation.
+
+```lua
 -- Two functions for fonts and for images just to show how to
 -- create objects and output them.
-
 document.info("Reading myfile.lua")
 
 local ok, face, msg, fnt, lang_en, imgfile, image
@@ -62,7 +118,7 @@ favorite plaything.]])
 
     local head, cur = lang, lang
     for _, glyph in ipairs(tbl) do
-        if glyph.glyph == 32 then
+        if glyph.isspace then
             local glu = node.new("glue")
             glu.width = fnt.space
             glu.stretch = fnt.stretch
@@ -106,11 +162,12 @@ end
 -- The document d is the most important item here.
 local d = document.new("out.pdf")
 
-face, msg = d.loadFace("fonts/CrimsonPro-Regular.ttf")
+face, msg = d.loadFace({name = "regular", source = "fonts/CrimsonPro-Regular.ttf"})
 if not face then
     print(msg)
     os.exit(-1)
 end
+
 
 fnt = d.createFont(face,document.sp("12pt"))
 

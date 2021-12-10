@@ -97,8 +97,14 @@ func indexDoc(l *lua.LState) int {
 	case "loadpattern":
 		l.Push(l.NewFunction(documentLoadPatternFile(doc.d)))
 		return 1
+	case "mknodes":
+		l.Push(l.NewFunction(documentMknodes(doc.d)))
+		return 1
 	case "newpage":
 		l.Push(l.NewFunction(documentNewPage(doc.d)))
+		return 1
+	case "newfontfamily":
+		l.Push(l.NewFunction(documentNewFontfamily(doc.d)))
 		return 1
 	case "outputat":
 		l.Push(l.NewFunction(documentOutputAt(doc.d)))
@@ -165,6 +171,60 @@ func documentLoadPatternFile(doc *document.Document) lua.LGFunction {
 		ud := newUserDataFromType(l, pat)
 		l.Push(ud)
 		return 1
+	}
+}
+
+func teFromTable(l *lua.LState, tbl *lua.LTable) *document.TypesettingElement {
+	te := &document.TypesettingElement{}
+	var ts = make(document.TypesettingSettings)
+
+	te.Settings = ts
+	tbl.ForEach(func(k, v lua.LValue) {
+		switch k.Type() {
+		case lua.LTNumber:
+			switch v.Type() {
+			case lua.LTString:
+				te.Items = append(te.Items, v.String())
+			case lua.LTTable:
+				te.Items = append(te.Items, teFromTable(l, v.(*lua.LTable)))
+			}
+		case lua.LTString:
+			switch k.String() {
+			case "settings":
+				if settingstbl, ok := v.(*lua.LTable); ok {
+					ffLvalue := settingstbl.RawGetString("fontfamily")
+					if ffud, ok := ffLvalue.(*lua.LUserData); ok {
+						if ff, ok := ffud.Value.(*document.FontFamily); ok {
+							ts[document.SettingFontFamily] = ff
+						}
+					}
+					if colorLvalue := settingstbl.RawGetString("color"); colorLvalue.Type() == lua.LTString {
+						ts[document.SettingColor] = colorLvalue.String()
+					}
+					if weightLvalue := settingstbl.RawGetString("weight"); weightLvalue.Type() == lua.LTNumber {
+						value := weightLvalue.(lua.LNumber)
+						ts[document.SettingFontWeight] = int(float64(value))
+					}
+				}
+			}
+		}
+	})
+
+	return te
+}
+
+func documentMknodes(doc *document.Document) lua.LGFunction {
+	return func(l *lua.LState) int {
+		tbl := l.CheckTable(1)
+		te := teFromTable(l, tbl)
+
+		hlist, tail, err := doc.Mknodes(te)
+		if err != nil {
+			return lerr(l, err.Error())
+		}
+		l.Push(newUserDataFromNode(l, hlist))
+		l.Push(newUserDataFromNode(l, tail))
+		return 2
 	}
 }
 

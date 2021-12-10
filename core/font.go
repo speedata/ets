@@ -9,18 +9,30 @@ import (
 )
 
 const (
-	luaFaceTypeName = "face"
-	luaFontTypeName = "font"
+	luaFaceTypeName       = "face"
+	luaFontTypeName       = "font"
+	luaFontFamilyTypeName = "fontfamily"
 )
 
 func documentLoadFace(doc *document.Document) lua.LGFunction {
 	return func(l *lua.LState) int {
-		fn := l.CheckString(1)
-		f, err := doc.LoadFace(fn, 0)
+		fn := l.CheckTable(1)
+		nameValue := fn.RawGetString("name")
+		srcValue := fn.RawGetString("source")
+		if nameValue.Type() != lua.LTString {
+			return lerr(l, "the value of name must be a string")
+		}
+		if srcValue.Type() != lua.LTString {
+			return lerr(l, "the value of source must be a string")
+		}
+		fs := document.FontSource{
+			Name:   nameValue.String(),
+			Source: srcValue.String(),
+		}
+		f, err := doc.LoadFace(&fs)
 		if err != nil {
 			return lerr(l, err.Error())
 		}
-
 		mt := l.NewTypeMetatable(luaFaceTypeName)
 		ud := l.NewUserData()
 		ud.Value = f
@@ -83,6 +95,7 @@ func fontShape(fnt *font.Font, fntObj lua.LValue) lua.LGFunction {
 			glyphtbl.RawSetString("components", lua.LString(glyph.Components))
 			glyphtbl.RawSetString("glyph", lua.LNumber(glyph.Glyph))
 			glyphtbl.RawSetString("hyphenate", lua.LBool(glyph.Hyphenate))
+			glyphtbl.RawSetString("isspace", lua.LBool(glyph.IsSpace))
 			glyphtbl.RawSetString("font", fntObj)
 
 			tbl.Append(glyphtbl)
@@ -114,4 +127,75 @@ func indexFont(l *lua.LState) int {
 		return 1
 	}
 	return 0
+}
+
+// Font families
+func documentNewFontfamily(doc *document.Document) lua.LGFunction {
+	return func(l *lua.LState) int {
+		familyname := l.CheckString(1)
+		ff := doc.NewFontFamily(familyname)
+		l.Push(newUserdataFontfamily(l, ff))
+		return 1
+	}
+}
+
+func checkFontfamily(l *lua.LState, argpos int) *document.FontFamily {
+	ud := l.CheckUserData(argpos)
+	if v, ok := ud.Value.(*document.FontFamily); ok {
+		return v
+	}
+	l.ArgError(argpos, "fontfamily expected")
+	return nil
+}
+
+func newUserdataFontfamily(l *lua.LState, ff *document.FontFamily) *lua.LUserData {
+	ud := l.NewUserData()
+	ud.Value = ff
+	mt := l.NewTypeMetatable(luaFontFamilyTypeName)
+	l.SetField(mt, "__index", l.NewFunction(fontfamilyIndex))
+	l.SetMetatable(ud, mt)
+	return ud
+}
+
+func fontfamilyIndex(l *lua.LState) int {
+	ff := checkFontfamily(l, 1)
+	switch l.CheckString(2) {
+	case "addmember":
+		l.Push(l.NewFunction(fontfamilyaddmember(ff)))
+		return 1
+	case "id":
+		l.Push(lua.LNumber(ff.ID))
+		return 1
+	}
+	return 0
+}
+
+func fontfamilyaddmember(p *document.FontFamily) lua.LGFunction {
+	return func(l *lua.LState) int {
+		fn := l.CheckTable(1)
+		nameValue := fn.RawGetString("name")
+		srcValue := fn.RawGetString("source")
+		if nameValue.Type() != lua.LTString {
+			return lerr(l, "the value of name must be a string")
+		}
+		if srcValue.Type() != lua.LTString {
+			return lerr(l, "the value of source must be a string")
+		}
+		fs := &document.FontSource{
+			Name:   nameValue.String(),
+			Source: srcValue.String(),
+		}
+
+		weight := l.CheckInt(2)
+		stylestring := l.CheckString(3)
+		var style document.FontStyle
+		switch stylestring {
+		case "regular", "normal":
+			style = document.FontStyleNormal
+		case "italic":
+			style = document.FontStyleItalic
+		}
+		p.AddMember(fs, weight, style)
+		return 0
+	}
 }
